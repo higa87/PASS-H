@@ -1,0 +1,1056 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>手溶接 入熱・パス間温度管理アプリ（帳票寄せ版）</title>
+  <style>
+    :root {
+      --bg: #edf1f5;
+      --ink: #111;
+      --line: #1b1b1b;
+      --thin: #666;
+      --panel: #fff;
+      --accent: #0f172a;
+      --soft: #f8fafc;
+      --danger: #c62828;
+      --warn: #b45309;
+      --ok: #166534;
+    }
+    * { box-sizing: border-box; }
+    html, body { margin: 0; padding: 0; }
+    body {
+      font-family: "Yu Gothic UI", "Hiragino Kaku Gothic ProN", Meiryo, sans-serif;
+      background: var(--bg);
+      color: var(--ink);
+      line-height: 1.35;
+    }
+    button, input, select, textarea { font: inherit; }
+    .app {
+      max-width: 1500px;
+      margin: 0 auto;
+      padding: 14px;
+    }
+    .toolbar {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 12px;
+    }
+    .toolbar h1 {
+      margin: 0;
+      font-size: 24px;
+      line-height: 1.2;
+    }
+    .toolbar p {
+      margin: 4px 0 0;
+      font-size: 13px;
+      color: #475569;
+    }
+    .actions { display: flex; gap: 8px; flex-wrap: wrap; }
+    .btn {
+      border: 1px solid #cbd5e1;
+      background: #fff;
+      border-radius: 12px;
+      padding: 10px 14px;
+      cursor: pointer;
+      box-shadow: 0 1px 2px rgba(0,0,0,.05);
+    }
+    .btn.primary { background: var(--accent); color: #fff; border-color: var(--accent); }
+    .btn.warn { color: var(--danger); border-color: #fecaca; }
+    .mobile-tabs {
+      display: none;
+      gap: 8px;
+      margin-bottom: 10px;
+    }
+    .mobile-tabs button {
+      flex: 1;
+      border: 1px solid #cbd5e1;
+      background: #fff;
+      border-radius: 12px;
+      padding: 10px 12px;
+      font-weight: 700;
+    }
+    .mobile-tabs button.active {
+      background: var(--accent);
+      color: #fff;
+      border-color: var(--accent);
+    }
+
+    .workspace {
+      display: grid;
+      grid-template-columns: 420px minmax(0, 1fr);
+      gap: 14px;
+      align-items: start;
+    }
+
+    .panel {
+      background: var(--panel);
+      border-radius: 18px;
+      padding: 14px;
+      box-shadow: 0 6px 24px rgba(15,23,42,.06);
+      min-width: 0;
+    }
+    .panel h2 {
+      margin: 0 0 10px;
+      font-size: 18px;
+    }
+    .panel h3 {
+      margin: 14px 0 8px;
+      font-size: 15px;
+    }
+    .field-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 10px;
+    }
+    .field-grid.three { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+    .field { min-width: 0; }
+    .field.full { grid-column: 1 / -1; }
+    .field label {
+      display: block;
+      margin-bottom: 4px;
+      font-size: 12px;
+      font-weight: 700;
+      color: #334155;
+    }
+    .field input, .field select, .field textarea {
+      width: 100%;
+      border: 1px solid #cbd5e1;
+      border-radius: 12px;
+      padding: 10px 12px;
+      background: #fff;
+    }
+    .field textarea { min-height: 72px; resize: vertical; }
+    .hint { margin-top: 5px; font-size: 11px; color: #64748b; }
+    .small-note {
+      margin-top: 8px;
+      padding: 8px 10px;
+      border: 1px solid #e2e8f0;
+      background: #f8fafc;
+      border-radius: 12px;
+      font-size: 12px;
+      color: #475569;
+    }
+
+    .cards { display: none; gap: 10px; }
+    .pass-card {
+      border: 1px solid #dbe3ea;
+      border-radius: 14px;
+      padding: 10px;
+      background: #fff;
+    }
+    .pass-card h4 { margin: 0 0 8px; font-size: 15px; }
+    .table-scroll {
+      overflow: auto;
+      border: 1px solid #dbe3ea;
+      border-radius: 14px;
+      background: #fff;
+    }
+    table.edit-table {
+      width: 100%;
+      min-width: 990px;
+      border-collapse: collapse;
+    }
+    .edit-table th, .edit-table td {
+      border: 1px solid #cbd5e1;
+      padding: 4px;
+      text-align: center;
+      vertical-align: middle;
+    }
+    .edit-table th {
+      background: #f8fafc;
+      font-size: 12px;
+    }
+    .edit-table td input {
+      width: 100%;
+      border: 0;
+      padding: 6px 4px;
+      text-align: center;
+      background: transparent;
+    }
+    .edit-table td input:focus {
+      outline: 1px solid #94a3b8;
+      background: #fff;
+    }
+
+    .preview-shell {
+      overflow: auto;
+      padding-bottom: 8px;
+    }
+    .page {
+      width: 198mm;
+      min-height: 285mm;
+      margin: 0 auto;
+      background: #fff;
+      color: #000;
+      border: 1px solid #c7cdd4;
+      box-shadow: 0 6px 24px rgba(0,0,0,.08);
+      padding: 6mm;
+      overflow: hidden;
+    }
+    .sheet-title {
+      font-size: 8.5mm;
+      font-weight: 700;
+      text-align: center;
+      letter-spacing: .4px;
+      margin: 1mm 0 2mm;
+    }
+    .sheet-title.small { font-size: 7.6mm; }
+
+    .sheet-table {
+      width: 100%;
+      border-collapse: collapse;
+      table-layout: fixed;
+      font-size: 3.8mm;
+      line-height: 1.15;
+    }
+    .sheet-table th,
+    .sheet-table td {
+      border: .35mm solid var(--line);
+      padding: .8mm 1mm;
+      vertical-align: middle;
+      overflow-wrap: anywhere;
+      word-break: break-word;
+    }
+    .sheet-table th {
+      font-weight: 700;
+      text-align: center;
+    }
+    .value {
+      min-height: 5.2mm;
+      white-space: pre-wrap;
+    }
+    .value.center { text-align: center; }
+    .value.right { text-align: right; }
+    .submini {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 0;
+      min-height: 5.2mm;
+    }
+    .submini > div {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 5.2mm;
+    }
+    .submini.split4 { grid-template-columns: 1.2fr .8fr 1fr 1fr; }
+    .submini.bordered > div + div { border-left: .35mm solid var(--line); }
+    .material-box {
+      display: grid;
+      grid-template-columns: 3.2fr 2fr;
+      gap: 0;
+    }
+    .material-box .label, .material-box .val {
+      min-height: 5.2mm;
+      display: flex;
+      align-items: center;
+      padding: 0 1mm;
+    }
+    .material-box .val { border-left: .35mm solid var(--line); }
+    .material-box .row + .row { border-top: .35mm solid var(--line); }
+    .material-box .row { display: contents; }
+
+    .diagram-photo {
+      display: grid;
+      grid-template-columns: 33.5% 66.5%;
+      border-left: .35mm solid var(--line);
+      border-right: .35mm solid var(--line);
+      border-bottom: .35mm solid var(--line);
+    }
+    .diagram-side,
+    .photo-side {
+      min-height: 78mm;
+      position: relative;
+    }
+    .diagram-side { border-right: .35mm solid var(--line); }
+    .box-title {
+      position: absolute;
+      top: 1mm;
+      left: 1mm;
+      font-size: 4.1mm;
+      font-weight: 700;
+      background: #fff;
+      padding: 0 .8mm;
+    }
+    .diagram-stage,
+    .photo-stage {
+      width: 100%;
+      height: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 8mm 4mm 4mm;
+      overflow: hidden;
+    }
+    .diagram-caption {
+      position: absolute;
+      right: 1mm;
+      bottom: 1mm;
+      font-size: 3.2mm;
+      color: #333;
+      text-align: right;
+    }
+    .photo-stage img {
+      max-width: 100%;
+      max-height: 66mm;
+      object-fit: contain;
+      display: block;
+    }
+    .photo-empty {
+      color: #777;
+      font-size: 3.6mm;
+      text-align: center;
+      border: .3mm dashed #999;
+      width: 100%;
+      height: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 4mm;
+    }
+
+    .data-table {
+      margin-top: 0;
+      font-size: 3.5mm;
+    }
+    .data-table th,
+    .data-table td { padding: .55mm .7mm; }
+    .data-table .numcol { width: 6%; }
+    .data-table .smallcol { width: 8.2%; }
+    .data-table .tempcol { width: 8.8%; }
+    .data-table .remarkcol { width: 18%; }
+    .rowh td { height: 4.3mm; }
+    .center { text-align: center; }
+
+    .note-box {
+      border: .35mm solid var(--line);
+      border-top: 0;
+      padding: 1.2mm 2.2mm;
+      font-size: 3.4mm;
+      line-height: 1.35;
+    }
+    .note-box strong { display: inline-block; margin-right: 4mm; }
+
+    .sheet-status {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      flex-wrap: wrap;
+      margin-top: 10px;
+      font-size: 13px;
+      color: #475569;
+    }
+    .status-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      border-radius: 999px;
+      padding: 5px 10px;
+      background: #fff;
+      border: 1px solid #dbe3ea;
+    }
+    .status-chip.warn { color: var(--warn); border-color: #facc15; }
+    .status-chip.bad { color: var(--danger); border-color: #fecaca; }
+    .status-chip.ok { color: var(--ok); border-color: #bbf7d0; }
+
+    .hidden-print { }
+
+    @media (max-width: 1100px) {
+      .workspace { grid-template-columns: 360px minmax(0, 1fr); }
+      .page { width: 190mm; }
+    }
+
+    @media (max-width: 920px) {
+      .mobile-tabs { display: flex; }
+      .workspace { grid-template-columns: 1fr; }
+      .editor-pane, .preview-pane { display: none; }
+      body.show-editor .editor-pane { display: block; }
+      body.show-preview .preview-pane { display: block; }
+      .page { width: 100%; min-height: auto; padding: 4.2mm; }
+      .preview-shell { overflow: visible; }
+      .sheet-title { font-size: 5.5mm; }
+      .sheet-table { font-size: 2.65mm; }
+      .diagram-photo { grid-template-columns: 34% 66%; }
+      .diagram-side, .photo-side { min-height: 58mm; }
+      .diagram-stage, .photo-stage { padding-top: 6mm; }
+      .photo-stage img { max-height: 50mm; }
+    }
+
+    @media (max-width: 720px) {
+      .app { padding: 10px; }
+      .toolbar h1 { font-size: 20px; }
+      .field-grid, .field-grid.three { grid-template-columns: 1fr; }
+      .table-scroll { display: none; }
+      .cards { display: grid; }
+      .page { padding: 3.6mm; }
+      .sheet-table { font-size: 2.45mm; }
+      .sheet-title { font-size: 4.9mm; margin-top: 0; }
+      .diagram-side, .photo-side { min-height: 50mm; }
+      .data-table { font-size: 2.4mm; }
+      .data-table th, .data-table td { padding: .35mm .45mm; }
+      .rowh td { height: 3.8mm; }
+      .note-box { font-size: 2.45mm; }
+    }
+
+    @page { size: A4 portrait; margin: 5mm; }
+    @media print {
+      html, body { background: #fff; }
+      body { margin: 0; }
+      .hidden-print, .mobile-tabs { display: none !important; }
+      .app { max-width: none; margin: 0; padding: 0; }
+      .workspace { display: block; }
+      .editor-pane { display: none !important; }
+      .preview-pane { display: block !important; }
+      .preview-shell { overflow: visible; }
+      .page {
+        width: 200mm;
+        min-height: 286mm;
+        border: 0;
+        box-shadow: none;
+        margin: 0;
+        padding: 5mm;
+      }
+      .sheet-status { display: none; }
+    }
+  </style>
+</head>
+<body class="show-editor">
+  <div class="app">
+    <div class="toolbar hidden-print">
+      <div>
+        <h1>手溶接 入熱・パス間温度管理アプリ</h1>
+        <p>入力はスマホ向け、帳票はA4印刷向けに記録用紙へ寄せた修正版です。</p>
+      </div>
+      <div class="actions">
+        <button class="btn primary" id="saveBtn">保存</button>
+        <button class="btn" id="csvBtn">CSV出力</button>
+        <button class="btn" id="printBtn">印刷</button>
+        <button class="btn warn" id="resetBtn">リセット</button>
+      </div>
+    </div>
+
+    <div class="mobile-tabs hidden-print">
+      <button id="tabEditor" class="active">入力</button>
+      <button id="tabPreview">帳票プレビュー</button>
+    </div>
+
+    <div class="workspace">
+      <div class="editor-pane panel hidden-print">
+        <h2>基本情報</h2>
+        <div class="field-grid">
+          <div class="field full"><label>工事名</label><input id="projectName"></div>
+          <div class="field"><label>構造</label><input id="structure"></div>
+          <div class="field"><label>測定者</label><input id="measurer"></div>
+          <div class="field"><label>測定日</label><input id="measureDate" type="date"></div>
+          <div class="field"><label>天候 / 気温</label><input id="weatherTemp" placeholder="晴れ / 25℃"></div>
+          <div class="field"><label>温度測定器</label><input id="tempDevice"></div>
+          <div class="field"><label>センサー型式</label><input id="sensorType"></div>
+          <div class="field"><label>鋼材材質</label><input id="steelMaterial"></div>
+          <div class="field"><label>板厚 / 板幅</label><input id="plateInfo" placeholder="22mm / 150mm"></div>
+          <div class="field"><label>パス間温度規定（℃）</label><input id="interpassLimit" inputmode="decimal"></div>
+          <div class="field"><label>入熱規定（kJ/cm）</label><input id="heatLimit" inputmode="decimal"></div>
+          <div class="field"><label>開先形状</label><input id="grooveShape"></div>
+          <div class="field"><label>開先角度 θ（度）</label><input id="grooveAngle" inputmode="decimal"></div>
+          <div class="field"><label>ルート間隔 RG（mm）</label><input id="rootGap" inputmode="decimal"></div>
+        </div>
+
+        <h3>溶接条件</h3>
+        <div class="field-grid">
+          <div class="field"><label>溶接技能者</label><input id="welder"></div>
+          <div class="field"><label>溶接技能者資格</label><input id="welderCert"></div>
+          <div class="field"><label>溶接方法</label><input id="weldMethod" placeholder="被覆アーク溶接"></div>
+          <div class="field"><label>溶接姿勢</label><input id="weldPosition"></div>
+          <div class="field"><label>溶接材料 規格</label><input id="materialSpec"></div>
+          <div class="field"><label>メーカー</label><input id="materialMaker"></div>
+          <div class="field"><label>銘柄</label><input id="materialBrand"></div>
+          <div class="field"><label>ワイヤ径 / 棒径</label><input id="materialDia"></div>
+          <div class="field"><label>シールドガス / 流量</label><input id="shieldGasFlow" placeholder="- / - l/min"></div>
+          <div class="field"><label>エンドタブ</label><input id="endTab"></div>
+          <div class="field"><label>柱・梁の形状</label><input id="memberShape"></div>
+          <div class="field"><label>溶接長さ（cm）</label><input id="weldLength" inputmode="decimal"></div>
+          <div class="field"><label>入熱計算係数</label><input id="efficiency" inputmode="decimal"></div>
+          <div class="field"><label>標準積層図 板厚</label>
+            <select id="patternThickness">
+              <option value="6">6mm</option>
+              <option value="9">9mm</option>
+              <option value="12">12mm</option>
+              <option value="16">16mm</option>
+              <option value="19">19mm</option>
+              <option value="22">22mm</option>
+              <option value="25">25mm</option>
+              <option value="28">28mm</option>
+              <option value="32">32mm</option>
+              <option value="36">36mm</option>
+              <option value="40">40mm</option>
+              <option value="45">45mm</option>
+            </select>
+          </div>
+        </div>
+        <div class="small-note">積層図は、手溶接の標準積層パターン（6〜45mm）をベクトルで描いています。帳票側は記録用紙レイアウト優先、入力側はスマホ優先です。</div>
+
+        <h3>溶接写真</h3>
+        <div class="field-grid">
+          <div class="field full">
+            <label>写真アップロード</label>
+            <input id="photoInput" type="file" accept="image/*" capture="environment">
+            <div class="hint">スマホならそのまま写真撮影でも使えます。</div>
+          </div>
+          <div class="field full"><button class="btn" id="clearPhotoBtn" type="button">写真を削除</button></div>
+        </div>
+
+        <h3>パス別入力</h3>
+        <div class="table-scroll">
+          <table class="edit-table" id="editTable">
+            <thead>
+              <tr>
+                <th>パス数</th><th>電流(A)</th><th>電圧(V)</th><th>溶接時間(秒)</th><th>溶接速度(cm/分)</th>
+                <th>入熱(kJ/cm)</th><th>開始時温度(℃)</th><th>完了時温度(℃)</th><th>インターバル(分)</th><th>備考</th>
+              </tr>
+            </thead>
+            <tbody id="editRows"></tbody>
+          </table>
+        </div>
+        <div class="cards" id="mobilePassCards"></div>
+      </div>
+
+      <div class="preview-pane">
+        <div class="preview-shell">
+          <div class="page" id="sheetPage">
+            <div class="sheet-title">溶接 入熱・パス間温度管理・データシート</div>
+
+            <table class="sheet-table">
+              <colgroup>
+                <col style="width:14.5%"><col style="width:37.5%"><col style="width:14.5%"><col style="width:33.5%">
+              </colgroup>
+              <tr>
+                <th>工　事　名</th><td><div class="value" id="pv_projectName"></div></td>
+                <th>溶 接 技 能 者</th><td><div class="value" id="pv_welder"></div></td>
+              </tr>
+              <tr>
+                <th>構　　　造</th><td><div class="value" id="pv_structure"></div></td>
+                <th>溶接技能者資格</th><td><div class="value" id="pv_welderCert"></div></td>
+              </tr>
+              <tr>
+                <th>測　定　者</th><td><div class="value" id="pv_measurer"></div></td>
+                <th>溶 接 方 法</th><td><div class="value" id="pv_weldMethod"></div></td>
+              </tr>
+              <tr>
+                <th>測　定　日</th><td><div class="value" id="pv_measureDate"></div></td>
+                <th>溶 接 姿 勢</th><td><div class="value" id="pv_weldPosition"></div></td>
+              </tr>
+              <tr>
+                <th>天候 / 気温</th><td><div class="value" id="pv_weatherTemp"></div></td>
+                <th rowspan="4">溶 接 材 料</th>
+                <td rowspan="4" style="padding:0">
+                  <div class="material-box">
+                    <div class="row"><div class="label">規　格：</div><div class="val" id="pv_materialSpec"></div></div>
+                    <div class="row"><div class="label">メーカー：</div><div class="val" id="pv_materialMaker"></div></div>
+                    <div class="row"><div class="label">銘　柄：</div><div class="val" id="pv_materialBrand"></div></div>
+                    <div class="row"><div class="label">ワイヤ径：</div><div class="val" id="pv_materialDia"></div></div>
+                  </div>
+                </td>
+              </tr>
+              <tr>
+                <th>温度測定器</th><td><div class="value" id="pv_tempDevice"></div></td>
+              </tr>
+              <tr>
+                <th>センサー型式</th><td><div class="value" id="pv_sensorType"></div></td>
+              </tr>
+              <tr>
+                <th>鋼 材 材 質</th><td><div class="value" id="pv_steelMaterial"></div></td>
+              </tr>
+              <tr>
+                <th>板厚 / 板幅</th><td><div class="value" id="pv_plateInfo"></div></td>
+                <th>シールドガス / 流量</th><td><div class="value" id="pv_shieldGasFlow"></div></td>
+              </tr>
+              <tr>
+                <th>パス間温度</th>
+                <td style="padding:0">
+                  <div class="submini split4 bordered">
+                    <div id="pv_interpassLimit"></div><div>℃</div><div>入熱</div><div id="pv_heatLimit"></div>
+                  </div>
+                </td>
+                <th>エ ン ド タ ブ</th><td><div class="value" id="pv_endTab"></div></td>
+              </tr>
+              <tr>
+                <th rowspan="2">開 先 形 状</th>
+                <td><div class="value">開先角度　θ = <span id="pv_grooveAngle"></span> 度</div></td>
+                <th>柱・梁の形状</th><td><div class="value" id="pv_memberShape"></div></td>
+              </tr>
+              <tr>
+                <td><div class="value">ルート間隔　RG = <span id="pv_rootGap"></span> mm</div></td>
+                <th>溶 接 長 さ</th><td><div class="value" id="pv_weldLength"></div></td>
+              </tr>
+            </table>
+
+            <div class="diagram-photo">
+              <div class="diagram-side">
+                <div class="box-title">積　層　図</div>
+                <div class="diagram-stage" id="diagramStage"></div>
+                <div class="diagram-caption" id="diagramCaption"></div>
+              </div>
+              <div class="photo-side">
+                <div class="box-title">溶接写真</div>
+                <div class="photo-stage" id="photoStage"><div class="photo-empty">写真未登録</div></div>
+              </div>
+            </div>
+
+            <table class="sheet-table data-table">
+              <colgroup>
+                <col class="numcol"><col class="smallcol"><col class="smallcol"><col class="smallcol"><col class="smallcol"><col class="smallcol"><col class="tempcol"><col class="tempcol"><col class="smallcol"><col class="remarkcol">
+              </colgroup>
+              <thead>
+                <tr>
+                  <th rowspan="2">パス数</th>
+                  <th rowspan="2">電流<br>(A)</th>
+                  <th rowspan="2">電圧<br>(V)</th>
+                  <th rowspan="2">溶接時間<br>(秒)</th>
+                  <th rowspan="2">溶接速度<br>(cm/分)</th>
+                  <th rowspan="2">入熱<br>(KJ/cm)</th>
+                  <th colspan="2">温度 (℃)</th>
+                  <th rowspan="2">インターバル<br>(分)</th>
+                  <th rowspan="2">備　　　考</th>
+                </tr>
+                <tr>
+                  <th>開始時</th>
+                  <th>完了時</th>
+                </tr>
+              </thead>
+              <tbody id="pv_passBody"></tbody>
+            </table>
+
+            <div class="note-box">
+              <strong>(注)</strong><br>
+              1. スラグ除去は原則として3パス毎に行い、実際に行った時点のパス数に〇印を記す。<br>
+              2. 溶接途中でチップ交換等のアクシデントが生じた場合は、備考にその旨を記載する。
+            </div>
+          </div>
+        </div>
+        <div class="sheet-status hidden-print" id="statusBar"></div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const STORAGE_KEY = 'manual-welding-sheetlike-v2';
+    const patternMap = {
+      6:  { thickness: 6,  layers: 2,  passes: 2,  threshold: 1 },
+      9:  { thickness: 9,  layers: 2,  passes: 2,  threshold: 1 },
+      12: { thickness: 12, layers: 4,  passes: 4,  threshold: 3 },
+      16: { thickness: 16, layers: 4,  passes: 5,  threshold: 3 },
+      19: { thickness: 19, layers: 4,  passes: 6,  threshold: 3 },
+      22: { thickness: 22, layers: 5,  passes: 7,  threshold: 3 },
+      25: { thickness: 25, layers: 6,  passes: 8,  threshold: 4 },
+      28: { thickness: 28, layers: 7,  passes: 10, threshold: 4 },
+      32: { thickness: 32, layers: 8,  passes: 12, threshold: 4 },
+      36: { thickness: 36, layers: 8,  passes: 15, threshold: 7 },
+      40: { thickness: 40, layers: 9,  passes: 18, threshold: 9 },
+      45: { thickness: 45, layers: 10, passes: 22, threshold: 10 }
+    };
+
+    const defaultData = {
+      projectName: '', structure: '', measurer: '', measureDate: new Date().toISOString().slice(0,10),
+      weatherTemp: '', tempDevice: '', sensorType: '', steelMaterial: '', plateInfo: '',
+      interpassLimit: '250', heatLimit: '30', grooveShape: '', grooveAngle: '35', rootGap: '6',
+      welder: '', welderCert: '', weldMethod: '被覆アーク溶接', weldPosition: '', materialSpec: '',
+      materialMaker: '', materialBrand: '', materialDia: '', shieldGasFlow: '', endTab: '',
+      memberShape: '', weldLength: '27', efficiency: '1.0', patternThickness: '22', photoData: ''
+    };
+
+    const passRows = Array.from({ length: 17 }, (_, i) => ({
+      no: String(i + 1), current: '', voltage: '', seconds: '', speed: '', heat: '', tempStart: '', tempEnd: '', interval: '', remark: ''
+    }));
+
+    let state = loadState();
+
+    function loadState() {
+      try {
+        const raw = localStorage.getItem(STORAGE_KEY);
+        if (!raw) return { ...defaultData, passes: structuredClone(passRows) };
+        const parsed = JSON.parse(raw);
+        return {
+          ...defaultData,
+          ...parsed,
+          passes: Array.isArray(parsed.passes)
+            ? Array.from({ length: 17 }, (_, i) => ({ ...passRows[i], ...(parsed.passes[i] || {}) }))
+            : structuredClone(passRows)
+        };
+      } catch (e) {
+        return { ...defaultData, passes: structuredClone(passRows) };
+      }
+    }
+
+    const inputIds = Object.keys(defaultData).filter(k => k !== 'photoData');
+    const topInputMap = Object.fromEntries(inputIds.map(id => [id, document.getElementById(id)]));
+    const editRowsEl = document.getElementById('editRows');
+    const mobilePassCards = document.getElementById('mobilePassCards');
+    const pvPassBody = document.getElementById('pv_passBody');
+    const diagramStage = document.getElementById('diagramStage');
+    const diagramCaption = document.getElementById('diagramCaption');
+    const photoStage = document.getElementById('photoStage');
+    const statusBar = document.getElementById('statusBar');
+
+    const pvKeys = {
+      projectName: 'pv_projectName', structure: 'pv_structure', measurer: 'pv_measurer', measureDate: 'pv_measureDate',
+      weatherTemp: 'pv_weatherTemp', tempDevice: 'pv_tempDevice', sensorType: 'pv_sensorType', steelMaterial: 'pv_steelMaterial',
+      plateInfo: 'pv_plateInfo', interpassLimit: 'pv_interpassLimit', heatLimit: 'pv_heatLimit', grooveAngle: 'pv_grooveAngle',
+      rootGap: 'pv_rootGap', welder: 'pv_welder', welderCert: 'pv_welderCert', weldMethod: 'pv_weldMethod', weldPosition: 'pv_weldPosition',
+      materialSpec: 'pv_materialSpec', materialMaker: 'pv_materialMaker', materialBrand: 'pv_materialBrand', materialDia: 'pv_materialDia',
+      shieldGasFlow: 'pv_shieldGasFlow', endTab: 'pv_endTab', memberShape: 'pv_memberShape', weldLength: 'pv_weldLength'
+    };
+
+    function deepClone(obj) { return JSON.parse(JSON.stringify(obj)); }
+    function structuredClone(value) { return deepClone(value); }
+
+    function buildEditRows() {
+      editRowsEl.innerHTML = '';
+      mobilePassCards.innerHTML = '';
+      state.passes.forEach((row, index) => {
+        const tr = document.createElement('tr');
+        tr.innerHTML = [
+          `<td>${row.no}</td>`,
+          tdInput(index, 'current'), tdInput(index, 'voltage'), tdInput(index, 'seconds'), tdInput(index, 'speed'), tdInput(index, 'heat'),
+          tdInput(index, 'tempStart'), tdInput(index, 'tempEnd'), tdInput(index, 'interval'), tdInput(index, 'remark')
+        ].join('');
+        editRowsEl.appendChild(tr);
+
+        const card = document.createElement('div');
+        card.className = 'pass-card';
+        card.innerHTML = `
+          <h4>パス ${row.no}</h4>
+          <div class="field-grid">
+            <div class="field"><label>電流(A)</label><input data-row="${index}" data-key="current" inputmode="decimal"></div>
+            <div class="field"><label>電圧(V)</label><input data-row="${index}" data-key="voltage" inputmode="decimal"></div>
+            <div class="field"><label>溶接時間(秒)</label><input data-row="${index}" data-key="seconds" inputmode="decimal"></div>
+            <div class="field"><label>溶接速度(cm/分)</label><input data-row="${index}" data-key="speed" inputmode="decimal"></div>
+            <div class="field"><label>入熱(kJ/cm)</label><input data-row="${index}" data-key="heat" inputmode="decimal"></div>
+            <div class="field"><label>開始時温度(℃)</label><input data-row="${index}" data-key="tempStart" inputmode="decimal"></div>
+            <div class="field"><label>完了時温度(℃)</label><input data-row="${index}" data-key="tempEnd" inputmode="decimal"></div>
+            <div class="field"><label>インターバル(分)</label><input data-row="${index}" data-key="interval" inputmode="decimal"></div>
+            <div class="field full"><label>備考</label><input data-row="${index}" data-key="remark"></div>
+          </div>`;
+        mobilePassCards.appendChild(card);
+      });
+      syncEditInputs();
+    }
+
+    function tdInput(rowIndex, key) {
+      return `<td><input data-row="${rowIndex}" data-key="${key}" value=""></td>`;
+    }
+
+    function syncEditInputs() {
+      document.querySelectorAll('[data-row][data-key]').forEach(input => {
+        const row = Number(input.dataset.row);
+        const key = input.dataset.key;
+        input.value = state.passes[row][key] || '';
+      });
+    }
+
+    function bindEvents() {
+      inputIds.forEach(id => {
+        const el = topInputMap[id];
+        if (!el) return;
+        el.addEventListener('input', () => {
+          state[id] = el.value;
+          if (id === 'plateInfo' && !state.patternThickness) {
+            const num = parseFloat(el.value);
+            if (patternMap[num]) state.patternThickness = String(num);
+          }
+          render();
+        });
+      });
+
+      document.addEventListener('input', (e) => {
+        const target = e.target;
+        if (!(target instanceof HTMLElement)) return;
+        if (target.matches('[data-row][data-key]')) {
+          const row = Number(target.dataset.row);
+          const key = target.dataset.key;
+          state.passes[row][key] = target.value;
+          if (['current','voltage','seconds'].includes(key)) autoCalcRow(row);
+          if (key === 'speed') autoHeat(row);
+          renderPreviewPasses();
+          renderStatus();
+        }
+      });
+
+      document.getElementById('photoInput').addEventListener('change', handlePhoto);
+      document.getElementById('clearPhotoBtn').addEventListener('click', () => {
+        state.photoData = '';
+        document.getElementById('photoInput').value = '';
+        renderPhoto();
+      });
+      document.getElementById('saveBtn').addEventListener('click', saveState);
+      document.getElementById('csvBtn').addEventListener('click', exportCsv);
+      document.getElementById('printBtn').addEventListener('click', () => window.print());
+      document.getElementById('resetBtn').addEventListener('click', resetAll);
+      document.getElementById('tabEditor').addEventListener('click', () => switchTab('editor'));
+      document.getElementById('tabPreview').addEventListener('click', () => switchTab('preview'));
+    }
+
+    function switchTab(tab) {
+      document.body.classList.toggle('show-editor', tab === 'editor');
+      document.body.classList.toggle('show-preview', tab === 'preview');
+      document.getElementById('tabEditor').classList.toggle('active', tab === 'editor');
+      document.getElementById('tabPreview').classList.toggle('active', tab === 'preview');
+    }
+
+    function handlePhoto(e) {
+      const file = e.target.files && e.target.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = () => {
+        state.photoData = reader.result;
+        renderPhoto();
+      };
+      reader.readAsDataURL(file);
+    }
+
+    function autoCalcRow(index) {
+      const row = state.passes[index];
+      const length = Number(state.weldLength || 0);
+      const seconds = Number(row.seconds || 0);
+      if (length > 0 && seconds > 0) {
+        row.speed = (length * 60 / seconds).toFixed(1);
+      }
+      autoHeat(index);
+      syncEditInputs();
+    }
+
+    function autoHeat(index) {
+      const row = state.passes[index];
+      const current = Number(row.current || 0);
+      const voltage = Number(row.voltage || 0);
+      const speed = Number(row.speed || 0);
+      const eff = Number(state.efficiency || 1);
+      if (current > 0 && voltage > 0 && speed > 0) {
+        row.heat = ((60 * current * voltage * eff) / (1000 * speed)).toFixed(2);
+      }
+      syncEditInputs();
+    }
+
+    function render() {
+      inputIds.forEach(id => {
+        if (topInputMap[id]) topInputMap[id].value = state[id] || '';
+      });
+      Object.entries(pvKeys).forEach(([key, id]) => {
+        const el = document.getElementById(id);
+        if (!el) return;
+        el.textContent = key === 'measureDate' ? formatDate(state[key]) : (state[key] || '');
+      });
+      renderPhoto();
+      renderPreviewPasses();
+      renderDiagram();
+      renderStatus();
+    }
+
+    function renderPreviewPasses() {
+      pvPassBody.innerHTML = '';
+      state.passes.forEach((row, i) => {
+        const tr = document.createElement('tr');
+        tr.className = 'rowh';
+        const values = [row.no, row.current, row.voltage, row.seconds, row.speed, row.heat, row.tempStart, row.tempEnd, row.interval, row.remark];
+        values.forEach((value, idx) => {
+          const td = document.createElement('td');
+          td.textContent = value || '';
+          if (idx !== 9) td.className = 'center';
+          tr.appendChild(td);
+        });
+        pvPassBody.appendChild(tr);
+      });
+    }
+
+    function renderPhoto() {
+      photoStage.innerHTML = '';
+      if (state.photoData) {
+        const img = document.createElement('img');
+        img.src = state.photoData;
+        img.alt = '溶接写真';
+        photoStage.appendChild(img);
+      } else {
+        const empty = document.createElement('div');
+        empty.className = 'photo-empty';
+        empty.textContent = '写真未登録';
+        photoStage.appendChild(empty);
+      }
+    }
+
+    function renderDiagram() {
+      const pattern = patternMap[Number(state.patternThickness)] || patternMap[22];
+      diagramCaption.textContent = `板厚 ${pattern.thickness}mm ／ ${pattern.layers}層 ${pattern.passes}パス ／ ルートギャップ ${state.rootGap || '6'}mm`;
+      diagramStage.innerHTML = buildPatternSvg(pattern);
+    }
+
+    function distributePasses(layers, passes) {
+      const arr = Array(layers).fill(1);
+      let remain = passes - layers;
+      let idx = layers - 1;
+      while (remain > 0) {
+        arr[idx] += 1;
+        remain -= 1;
+        idx -= 1;
+        if (idx < 0) idx = layers - 1;
+      }
+      return arr;
+    }
+
+    function buildPatternSvg(pattern) {
+      const layers = pattern.layers;
+      const counts = distributePasses(layers, pattern.passes);
+      const w = 280;
+      const h = 240;
+      const leftX = 58;
+      const topY = 34;
+      const bottomY = 198;
+      const rightTopX = 188;
+      const baseY = 206;
+      const backingY = 210;
+      const bottomStartX = 112;
+      const slantStartX = 98;
+      const layerHeight = (bottomY - topY) / layers;
+      const threshold = pattern.threshold;
+      const hatchDef = `
+        <defs>
+          <pattern id="hatch" patternUnits="userSpaceOnUse" width="6" height="6" patternTransform="rotate(35)">
+            <line x1="0" y1="0" x2="0" y2="6" stroke="#8a8a8a" stroke-width="1.1" />
+          </pattern>
+        </defs>`;
+
+      function rightXAtY(y) {
+        const ratio = (y - topY) / (bottomY - topY);
+        return rightTopX - (rightTopX - slantStartX) * ratio;
+      }
+      function segPath(x0b, x1b, yb, x0t, x1t, yt) {
+        const bulgeB = 3;
+        const bulgeT = 3;
+        const midB = (x0b + x1b) / 2;
+        const midT = (x0t + x1t) / 2;
+        return [
+          `M ${x0b.toFixed(1)} ${yb.toFixed(1)}`,
+          `Q ${midB.toFixed(1)} ${(yb - bulgeB).toFixed(1)} ${x1b.toFixed(1)} ${yb.toFixed(1)}`,
+          `L ${x1t.toFixed(1)} ${yt.toFixed(1)}`,
+          `Q ${midT.toFixed(1)} ${(yt + bulgeT).toFixed(1)} ${x0t.toFixed(1)} ${yt.toFixed(1)}`,
+          'Z'
+        ].join(' ');
+      }
+      let paths = '';
+      let labels = '';
+      let passNo = 1;
+      for (let layer = 0; layer < layers; layer++) {
+        const yBottomLayer = bottomY - layerHeight * layer;
+        const yTopLayer = bottomY - layerHeight * (layer + 1);
+        const l0 = leftX;
+        const l1 = leftX;
+        const r0 = rightXAtY(yBottomLayer);
+        const r1 = rightXAtY(yTopLayer);
+        const count = counts[layer];
+        for (let j = 0; j < count; j++) {
+          const xb0 = l0 + (r0 - l0) * j / count;
+          const xb1 = l0 + (r0 - l0) * (j + 1) / count;
+          const xt0 = l1 + (r1 - l1) * j / count;
+          const xt1 = l1 + (r1 - l1) * (j + 1) / count;
+          const fill = passNo < threshold ? 'url(#hatch)' : '#fff';
+          const path = segPath(xb0, xb1, yBottomLayer, xt0, xt1, yTopLayer);
+          paths += `<path d="${path}" fill="${fill}" stroke="#222" stroke-width="1.1"/>`;
+          const cx = ((xb0 + xb1 + xt0 + xt1) / 4).toFixed(1);
+          const cy = ((yBottomLayer + yTopLayer) / 2 + (j % 2 === 0 ? 0 : -1.2)).toFixed(1);
+          if (passNo === threshold) {
+            labels += `<circle cx="${cx}" cy="${cy}" r="9" fill="#fff" stroke="#333" stroke-width="1"/>`;
+          }
+          labels += `<text x="${cx}" y="${cy}" text-anchor="middle" dominant-baseline="central" font-size="10.5" font-family="Yu Gothic UI, Meiryo, sans-serif">${passNo}</text>`;
+          passNo++;
+        }
+      }
+
+      return `
+        <svg viewBox="0 0 ${w} ${h}" width="100%" height="100%" aria-label="標準積層図">
+          ${hatchDef}
+          <g>
+            <line x1="${leftX}" y1="${topY - 8}" x2="${leftX}" y2="${bottomY + 18}" stroke="#111" stroke-width="1.5"/>
+            <line x1="${leftX}" y1="${bottomY}" x2="${200}" y2="${baseY}" stroke="#111" stroke-width="1.3"/>
+            <line x1="${rightTopX}" y1="${topY}" x2="${200}" y2="${topY}" stroke="#111" stroke-width="1.3"/>
+            <line x1="${slantStartX}" y1="${bottomY}" x2="${rightTopX}" y2="${topY}" stroke="#111" stroke-width="1.3"/>
+            <rect x="${leftX}" y="${backingY}" width="42" height="8" fill="#fff" stroke="#111" stroke-width="1.2"/>
+            ${paths}
+            ${labels}
+          </g>
+        </svg>`;
+    }
+
+    function renderStatus() {
+      const tempLimit = Number(state.interpassLimit || 0);
+      const heatLimit = Number(state.heatLimit || 0);
+      let maxTemp = 0;
+      let maxHeat = 0;
+      let overTemp = 0;
+      let overHeat = 0;
+      state.passes.forEach(r => {
+        const t1 = Number(r.tempStart || 0);
+        const t2 = Number(r.tempEnd || 0);
+        const h = Number(r.heat || 0);
+        maxTemp = Math.max(maxTemp, t1, t2);
+        maxHeat = Math.max(maxHeat, h);
+        if (tempLimit && (t1 > tempLimit || t2 > tempLimit)) overTemp++;
+        if (heatLimit && h > heatLimit) overHeat++;
+      });
+      statusBar.innerHTML = [
+        `<span class="status-chip ${overTemp ? 'bad' : 'ok'}">最大温度 ${maxTemp || '-'}℃</span>`,
+        `<span class="status-chip ${overHeat ? 'bad' : 'ok'}">最大入熱 ${maxHeat ? maxHeat.toFixed(2) : '-'} kJ/cm</span>`,
+        `<span class="status-chip ${overTemp ? 'bad' : 'ok'}">温度超過 ${overTemp} 件</span>`,
+        `<span class="status-chip ${overHeat ? 'bad' : 'ok'}">入熱超過 ${overHeat} 件</span>`
+      ].join('');
+    }
+
+    function saveState() {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+      alert('端末に保存しました。');
+    }
+
+    function exportCsv() {
+      const rows = [
+        ['工事名', state.projectName], ['構造', state.structure], ['測定者', state.measurer], ['測定日', formatDate(state.measureDate)],
+        ['天候/気温', state.weatherTemp], ['温度測定器', state.tempDevice], ['センサー型式', state.sensorType], ['鋼材材質', state.steelMaterial],
+        ['板厚/板幅', state.plateInfo], ['パス間温度規定', state.interpassLimit], ['入熱規定', state.heatLimit], ['開先形状', state.grooveShape],
+        ['開先角度', state.grooveAngle], ['ルート間隔', state.rootGap], ['溶接技能者', state.welder], ['溶接技能者資格', state.welderCert],
+        ['溶接方法', state.weldMethod], ['溶接姿勢', state.weldPosition], ['溶接材料規格', state.materialSpec], ['メーカー', state.materialMaker],
+        ['銘柄', state.materialBrand], ['ワイヤ径', state.materialDia], ['シールドガス/流量', state.shieldGasFlow], ['エンドタブ', state.endTab],
+        ['柱・梁の形状', state.memberShape], ['溶接長さ', state.weldLength], ['積層図板厚', state.patternThickness], [],
+        ['パス数','電流(A)','電圧(V)','溶接時間(秒)','溶接速度(cm/分)','入熱(kJ/cm)','開始時温度(℃)','完了時温度(℃)','インターバル(分)','備考']
+      ];
+      state.passes.forEach(r => rows.push([r.no,r.current,r.voltage,r.seconds,r.speed,r.heat,r.tempStart,r.tempEnd,r.interval,r.remark]));
+      const csv = rows.map(row => row.map(v => `"${String(v ?? '').replace(/"/g,'""')}"`).join(',')).join('\n');
+      const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `手溶接_入熱パス間温度_${state.measureDate || 'data'}.csv`;
+      a.click();
+      URL.revokeObjectURL(url);
+    }
+
+    function resetAll() {
+      if (!confirm('入力内容をリセットしますか？')) return;
+      localStorage.removeItem(STORAGE_KEY);
+      state = { ...defaultData, passes: structuredClone(passRows) };
+      buildEditRows();
+      render();
+    }
+
+    function formatDate(value) {
+      if (!value) return '';
+      const d = new Date(value);
+      if (Number.isNaN(d.getTime())) return value;
+      return `${d.getFullYear()}年 ${d.getMonth()+1}月 ${d.getDate()}日`;
+    }
+
+    buildEditRows();
+    bindEvents();
+    render();
+    if (window.innerWidth > 920) switchTab('editor');
+  </script>
+</body>
+</html>
