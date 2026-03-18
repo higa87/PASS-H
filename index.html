@@ -1123,6 +1123,8 @@
       clone.style.border = '0';
       clone.style.boxShadow = 'none';
       clone.style.padding = '0';
+      clone.style.color = '#111';
+      clone.style.webkitFontSmoothing = 'antialiased';
 
       const title = clone.querySelector('.sheet-title');
       if (title) {
@@ -1130,16 +1132,18 @@
         title.style.margin = '.5mm 0 1.2mm';
       }
       clone.querySelectorAll('.sheet-table').forEach(el => {
-        el.style.fontSize = '3.2mm';
+        el.style.fontSize = '3.0mm';
         el.style.lineHeight = '1.05';
         el.style.borderCollapse = 'collapse';
       });
       clone.querySelectorAll('.sheet-table th, .sheet-table td').forEach(el => {
-        el.style.padding = '.45mm .55mm';
-        el.style.borderWidth = '.22mm';
+        el.style.padding = '.34mm .42mm';
+        el.style.borderWidth = '.14mm';
+        el.style.borderColor = '#555';
       });
       clone.querySelectorAll('.submini.bordered > div + div, .material-box .val, .material-box .row + .row, .diagram-side, .photo-side, .diagram-photo-wrap, .note-box').forEach(el => {
-        el.style.borderWidth = '.22mm';
+        el.style.borderWidth = '.14mm';
+        el.style.borderColor = '#555';
       });
       clone.querySelectorAll('.diagram-side, .photo-side').forEach(el => {
         el.style.minHeight = '66mm';
@@ -1154,15 +1158,16 @@
         el.style.fontSize = '3.15mm';
       });
       clone.querySelectorAll('.data-table th, .data-table td').forEach(el => {
-        el.style.padding = '.38mm .45mm';
-        el.style.borderWidth = '.2mm';
+        el.style.padding = '.30mm .34mm';
+        el.style.borderWidth = '.14mm';
+        el.style.borderColor = '#555';
       });
       clone.querySelectorAll('.rowh td').forEach(el => {
-        el.style.height = '3.7mm';
+        el.style.height = '3.45mm';
       });
       clone.querySelectorAll('.note-box').forEach(el => {
-        el.style.padding = '.8mm 1.6mm';
-        el.style.fontSize = '3.05mm';
+        el.style.padding = '.7mm 1.2mm';
+        el.style.fontSize = '2.9mm';
         el.style.lineHeight = '1.18';
       });
       clone.querySelectorAll('svg').forEach(el => {
@@ -1171,8 +1176,9 @@
       });
       clone.querySelectorAll('svg line, svg path, svg rect, svg circle, svg polyline, svg polygon').forEach(el => {
         const raw = parseFloat(el.getAttribute('stroke-width') || '1');
-        const next = Math.max(0.55, raw * 0.72);
+        const next = Math.max(0.28, raw * 0.48);
         el.setAttribute('stroke-width', String(next));
+        el.setAttribute('stroke', (el.getAttribute('stroke') && el.getAttribute('stroke') !== 'none') ? '#444' : '#444');
         el.setAttribute('vector-effect', 'non-scaling-stroke');
         el.setAttribute('stroke-linecap', 'square');
       });
@@ -1184,7 +1190,7 @@
         await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
 
         const canvas = await window.html2canvas(mount, {
-          scale: 1.6,
+          scale: 1.3,
           useCORS: true,
           backgroundColor: '#ffffff',
           scrollX: 0,
