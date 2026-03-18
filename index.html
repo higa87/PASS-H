@@ -396,7 +396,7 @@
       .note-box { font-size: 2.45mm; }
     }
 
-    @page { size: A4 portrait; margin: 5mm; }
+    @page { size: A4 portrait; margin: 4mm; }
     @media print {
       html, body { background: #fff; }
       body { margin: 0; }
@@ -407,13 +407,27 @@
       .preview-pane { display: block !important; }
       .preview-shell { overflow: visible; }
       .page {
-        width: 200mm;
-        min-height: 286mm;
+        width: 188mm;
+        min-height: auto;
         border: 0;
         box-shadow: none;
-        margin: 0;
-        padding: 5mm;
+        margin: 0 auto;
+        padding: 3.2mm;
       }
+      .sheet-title { font-size: 7.2mm; margin: .5mm 0 1.2mm; }
+      .sheet-table { font-size: 3.2mm; line-height: 1.05; }
+      .sheet-table th,
+      .sheet-table td { padding: .45mm .55mm; }
+      .diagram-side,
+      .photo-side { min-height: 66mm; }
+      .diagram-stage,
+      .photo-stage { padding: 6mm 3mm 3mm; }
+      .photo-stage img { max-height: 56mm; }
+      .data-table { font-size: 3.15mm; }
+      .data-table th,
+      .data-table td { padding: .38mm .45mm; }
+      .rowh td { height: 3.7mm; }
+      .note-box { padding: .8mm 1.6mm; font-size: 3.05mm; line-height: 1.18; }
       .sheet-status { display: none; }
     }
   </style>
@@ -428,6 +442,7 @@
       <div class="actions">
         <button class="btn primary" id="saveBtn">保存</button>
         <button class="btn" id="csvBtn">CSV出力</button>
+        <button class="btn" id="pdfBtn">PDF出力</button>
         <button class="btn" id="printBtn">印刷</button>
         <button class="btn warn" id="resetBtn">リセット</button>
       </div>
@@ -635,6 +650,7 @@
     </div>
   </div>
 
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
   <script>
     const STORAGE_KEY = 'manual-welding-sheetlike-v2';
     const patternMap = {
@@ -656,7 +672,7 @@
       projectName: '', structure: '', measurer: '', measureDate: new Date().toISOString().slice(0,10),
       weatherTemp: '', tempDevice: '', sensorType: '', steelMaterial: '', plateInfo: '',
       interpassLimit: '250', heatLimit: '30', grooveShape: '', grooveAngle: '35', rootGap: '6',
-      welder: '', welderCert: '', weldMethod: '被覆アーク溶接', weldPosition: '', materialSpec: '',
+      welder: '', welderCert: '', weldMethod: '被覆アーク溶接', weldPosition: '下向き', materialSpec: '',
       materialMaker: '', materialBrand: '', materialDia: '', shieldGasFlow: '', endTab: '',
       memberShape: '', weldLength: '27', efficiency: '1.0', patternThickness: '22', photoData: ''
     };
@@ -787,6 +803,7 @@
       document.getElementById('saveBtn').addEventListener('click', saveState);
       document.getElementById('csvBtn').addEventListener('click', exportCsv);
       document.getElementById('printBtn').addEventListener('click', () => window.print());
+      document.getElementById('pdfBtn').addEventListener('click', exportPdf);
       document.getElementById('resetBtn').addEventListener('click', resetAll);
       document.getElementById('tabEditor').addEventListener('click', () => switchTab('editor'));
       document.getElementById('tabPreview').addEventListener('click', () => switchTab('preview'));
@@ -1030,6 +1047,113 @@
       a.download = `手溶接_入熱パス間温度_${state.measureDate || 'data'}.csv`;
       a.click();
       URL.revokeObjectURL(url);
+    }
+
+    async function exportPdf() {
+      const target = document.getElementById('sheetPage');
+      if (!target) return;
+      if (typeof window.html2canvas === 'undefined' || !window.jspdf || !window.jspdf.jsPDF) {
+        alert('PDF出力ライブラリの読み込みに失敗しました。通信状態を確認して、もう一度お試しください。');
+        return;
+      }
+
+      const filenameDate = state.measureDate || new Date().toISOString().slice(0, 10);
+      const mount = document.createElement('div');
+      mount.style.position = 'fixed';
+      mount.style.left = '-100000px';
+      mount.style.top = '0';
+      mount.style.width = '188mm';
+      mount.style.background = '#fff';
+      mount.style.padding = '3.2mm';
+      mount.style.overflow = 'hidden';
+      mount.style.zIndex = '-1';
+
+      const clone = target.cloneNode(true);
+      clone.style.width = '100%';
+      clone.style.minHeight = 'auto';
+      clone.style.margin = '0';
+      clone.style.border = '0';
+      clone.style.boxShadow = 'none';
+      clone.style.padding = '0';
+
+      const title = clone.querySelector('.sheet-title');
+      if (title) {
+        title.style.fontSize = '7.2mm';
+        title.style.margin = '.5mm 0 1.2mm';
+      }
+      clone.querySelectorAll('.sheet-table').forEach(el => {
+        el.style.fontSize = '3.2mm';
+        el.style.lineHeight = '1.05';
+      });
+      clone.querySelectorAll('.sheet-table th, .sheet-table td').forEach(el => {
+        el.style.padding = '.45mm .55mm';
+      });
+      clone.querySelectorAll('.diagram-side, .photo-side').forEach(el => {
+        el.style.minHeight = '66mm';
+      });
+      clone.querySelectorAll('.diagram-stage, .photo-stage').forEach(el => {
+        el.style.padding = '6mm 3mm 3mm';
+      });
+      clone.querySelectorAll('.photo-stage img').forEach(el => {
+        el.style.maxHeight = '56mm';
+      });
+      clone.querySelectorAll('.data-table').forEach(el => {
+        el.style.fontSize = '3.15mm';
+      });
+      clone.querySelectorAll('.data-table th, .data-table td').forEach(el => {
+        el.style.padding = '.38mm .45mm';
+      });
+      clone.querySelectorAll('.rowh td').forEach(el => {
+        el.style.height = '3.7mm';
+      });
+      clone.querySelectorAll('.note-box').forEach(el => {
+        el.style.padding = '.8mm 1.6mm';
+        el.style.fontSize = '3.05mm';
+        el.style.lineHeight = '1.18';
+      });
+
+      mount.appendChild(clone);
+      document.body.appendChild(mount);
+
+      try {
+        await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+
+        const canvas = await window.html2canvas(mount, {
+          scale: 2,
+          useCORS: true,
+          backgroundColor: '#ffffff',
+          scrollX: 0,
+          scrollY: 0,
+          windowWidth: mount.scrollWidth,
+          windowHeight: mount.scrollHeight
+        });
+
+        const { jsPDF } = window.jspdf;
+        const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+        const pageWidth = pdf.internal.pageSize.getWidth();
+        const pageHeight = pdf.internal.pageSize.getHeight();
+        const margin = 4;
+        const maxWidth = pageWidth - margin * 2;
+        const maxHeight = pageHeight - margin * 2;
+        const imgWidth = canvas.width;
+        const imgHeight = canvas.height;
+        const widthRatio = maxWidth / imgWidth;
+        const heightRatio = maxHeight / imgHeight;
+        const ratio = Math.min(widthRatio, heightRatio);
+        const renderWidth = imgWidth * ratio;
+        const renderHeight = imgHeight * ratio;
+        const x = (pageWidth - renderWidth) / 2;
+        const y = (pageHeight - renderHeight) / 2;
+        const imgData = canvas.toDataURL('image/jpeg', 0.98);
+
+        pdf.addImage(imgData, 'JPEG', x, y, renderWidth, renderHeight, undefined, 'FAST');
+        pdf.save(`手溶接_入熱パス間温度_${filenameDate}.pdf`);
+      } catch (error) {
+        console.error(error);
+        alert('PDF出力に失敗しました。もう一度お試しください。');
+      } finally {
+        mount.remove();
+      }
     }
 
     function resetAll() {
