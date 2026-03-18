@@ -650,7 +650,53 @@
     </div>
   </div>
 
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+  <script>
+  window.__pdfLibLoader = { promise: null };
+  function loadScriptSequential(urls) {
+    return new Promise((resolve, reject) => {
+      const tryLoad = (idx) => {
+        if (idx >= urls.length) {
+          reject(new Error("all script sources failed"));
+          return;
+        }
+        const s = document.createElement("script");
+        s.src = urls[idx];
+        s.async = true;
+        s.onload = () => resolve(urls[idx]);
+        s.onerror = () => { s.remove(); tryLoad(idx + 1); };
+        document.head.appendChild(s);
+      };
+      tryLoad(0);
+    });
+  }
+
+  async function ensurePdfLibs() {
+    const ok = () => typeof window.html2canvas !== 'undefined' && window.jspdf && window.jspdf.jsPDF;
+    if (ok()) return true;
+    if (window.__pdfLibLoader.promise) return window.__pdfLibLoader.promise;
+
+    window.__pdfLibLoader.promise = (async () => {
+      await loadScriptSequential([
+        "https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js",
+        "https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js",
+        "https://unpkg.com/html2canvas@1.4.1/dist/html2canvas.min.js"
+      ]);
+      await loadScriptSequential([
+        "https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js",
+        "https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js",
+        "https://unpkg.com/jspdf@2.5.1/dist/jspdf.umd.min.js"
+      ]);
+      if (!ok()) throw new Error('pdf libraries unavailable');
+      return true;
+    })().catch(err => {
+      console.error(err);
+      window.__pdfLibLoader.promise = null;
+      throw err;
+    });
+
+    return window.__pdfLibLoader.promise;
+  }
+</script>
   <script>
     const STORAGE_KEY = 'manual-welding-sheetlike-v2';
     const patternMap = {
@@ -1052,7 +1098,9 @@
     async function exportPdf() {
       const target = document.getElementById('sheetPage');
       if (!target) return;
-      if (typeof window.html2canvas === 'undefined' || !window.jspdf || !window.jspdf.jsPDF) {
+      try {
+        await ensurePdfLibs();
+      } catch (e) {
         alert('PDF出力ライブラリの読み込みに失敗しました。通信状態を確認して、もう一度お試しください。');
         return;
       }
